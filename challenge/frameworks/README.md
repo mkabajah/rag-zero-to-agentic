@@ -12,6 +12,7 @@ All four files use the **same tools** from `challenge/agent_tools.py` (built on 
 
 And without any framework: `challenge/mcp_server.py` gives the same tools to Claude Code or Kiro
 (see `.mcp.json`, `.kiro/settings/mcp.json` and the `hiring-agent` agent).
+To build an MCP server step by step, live: `challenge/mcp_live/README.md`.
 
 ## Try
 
