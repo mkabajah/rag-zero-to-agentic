@@ -36,7 +36,14 @@ def say(ok, text, fix=""):
 
 print("\n1 · Python and packages")
 say(sys.version_info >= (3, 10), f"Python {sys.version.split()[0]}", "use Python 3.10+ (the repo's .venv)")
-for mod, pip in [("mcp", "mcp[cli]"), ("chromadb", "chromadb"), ("sentence_transformers", "sentence-transformers"),
+try:
+    import importlib.metadata as _md
+    _v = _md.version("mcp")
+    say(int(_v.split(".")[0]) < 2, f"MCP SDK {_v} (FastMCP lives in mcp.server.fastmcp in 1.x)",
+        "MCP SDK 2.x removed mcp.server.fastmcp: pip install 'mcp[cli]<2'")
+except Exception:  # noqa: BLE001
+    pass
+for mod, pip in [("mcp.server.fastmcp", "mcp[cli]<2"), ("chromadb", "chromadb"), ("sentence_transformers", "sentence-transformers"),
                  ("pypdf", "pypdf"), ("docx", "python-docx"), ("networkx", "networkx")]:
     try:
         m = importlib.import_module(mod)
@@ -128,8 +135,27 @@ for server, tool, args in [("mcp_live/step1_hello.py", "list_cvs", {}),
                        "           cp challenge/checkpoints/level3.py challenge/pipeline.py   (or the instructor reference)")
         say(False, f"{server} did not answer", fix)
 
+print("\n6 · Level 5: the agentic RAG graph (LangGraph)")
+try:
+    import langgraph  # noqa: F401
+    import importlib.metadata as _md
+    say(True, f"langgraph {_md.version('langgraph')}")
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        import agentic
+    nodes = [n for n in agentic.graph.get_graph().nodes if not n.startswith("__")]
+    import inspect
+    todo = [n for n in ("route", "grade", "rewrite", "understand") if "starter" in inspect.getsource(getattr(agentic, n)).lower()]
+    say(len(nodes) == 8, f"challenge/agentic.py compiles: {len(nodes)} nodes · starter nodes left: {', '.join(todo) or 'none'}")
+    t = time.time()
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        sc = helpers.relevance("Who knows Kafka?", ["Built microservices with Kafka and Spring Boot", "Painted houses"])
+    say(sc[0] > sc[1], f"the grader's cross-encoder works ({sc[0]:.1f} vs {sc[1]:.1f}, {time.time() - t:.1f}s)",
+        "it needs cross-encoder/ms-marco-MiniLM-L-6-v2 (internet once, or the Hugging Face cache)")
+except Exception as e:  # noqa: BLE001
+    say(False, f"Level 5 not ready: {type(e).__name__}: {str(e)[:100]}", "pip install langgraph, then git pull for challenge/agentic.py")
+
 if "--llm" in sys.argv:
-    print("\n6 · The local LLM (LangGraph demo)")
+    print("\n7 · The local LLM (used by the agentic graph and the LangGraph demo)")
     t = time.time()
     with contextlib.redirect_stdout(io.StringIO()):
         a = helpers.llm("Reply with one word.", "Say OK.", 5)

@@ -42,6 +42,35 @@ top shows which level works: ⬜ waiting · ❌ error (with the message) · ✅ 
 
 Steps 1, 2 and 3 give the biggest wins: start there.
 
+## Level 5 · Agentic RAG (session 3)
+
+Your chatbot becomes a small **agent**: instead of "search once, answer", it decides at every step.
+The graph is built with **LangGraph** (`pip install langgraph`) in `challenge/agentic.py`:
+
+```
+START → understand → route ──LIST────→ find_all ──(found)──────────→ answer → END
+                       └──SEARCH→ retrieve → grade ──(relevant)────────↗
+                                     ↑         ├──(weak, < 2 tries)→ rewrite ─┐
+                                     └─────────┼──────────────────────────────┘
+                                               └──(weak after 2 tries)→ refuse → END
+```
+
+The file **already runs**: its starter nodes copy naive RAG. In the app, tick **🤖 Agentic RAG** in
+Chat (the *Agent steps* tab draws the path) or in Verify, then replace one node at a time:
+
+| Node | Fixes | Prompt idea (in the file) | Watch in Verify |
+|---|---|---|---|
+| 5A · route | "Which candidates know X?" needs EVERY match | few-shot LLM: LIST or SEARCH, and the term | `list` rows |
+| 5B · grade | it answers even when nothing fits | `helpers.relevance()` (cross-encoder) ≥ a threshold | `not in CVs` rows |
+| 5C · rewrite | a weak search is never retried | LLM writes a better query, loop back to retrieve | `paraphrase`, `exact` rows |
+| 5D · understand | "Which hospital did HE…" | LLM rewrites the follow-up so it stands alone | `follow-up` rows |
+
+Behind? `cp challenge/checkpoints/agentic_done.py challenge/agentic.py`, then Reload.
+Our run on the 24 CVs, same naive pipeline underneath: see the session slides.
+
+Then make it a tool for other agents: `challenge/mcp_live/README.md` (build an MCP server step by step)
+and the skills in `.claude/skills/` and `.kiro/skills/` (`shortlist-candidates`, `screen-cv`).
+
 ## Step 7 in detail · Graph RAG
 
 Vector search finds *similar text*. A graph stores *facts as connections*, so "which candidates know

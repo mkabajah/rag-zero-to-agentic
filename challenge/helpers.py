@@ -2,6 +2,8 @@
 
     embed(["text one", "text two"])  ->  numpy array, one normalized vector per text (MiniLM, 384 numbers)
     llm(system, user)                ->  the model's answer as a string (Qwen2.5-1.5B on your laptop)
+    relevance(question, ["passage"]) ->  one score per passage from a cross-encoder (higher = more relevant;
+                                         about > 0 clearly relevant, < -8 clearly not). Used by the agent's grader.
 """
 import pathlib
 import sys
@@ -9,9 +11,9 @@ import sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from ragkit import get_embedder, get_llm   # noqa: E402
+from ragkit import Reranker, get_embedder, get_llm   # noqa: E402
 
-_EMBEDDER, _LLM = None, None
+_EMBEDDER, _LLM, _RERANKER = None, None, None
 
 
 def embed(texts):
@@ -33,3 +35,11 @@ def llm(system, user, max_tokens=300):
 
 def llm_name():
     return getattr(_LLM, "name", "not loaded yet")
+
+
+def relevance(question, texts):
+    """Score how well each passage answers the question (cross-encoder ms-marco-MiniLM, ~90 MB)."""
+    global _RERANKER
+    if _RERANKER is None:
+        _RERANKER = Reranker()
+    return _RERANKER.score(question, list(texts))

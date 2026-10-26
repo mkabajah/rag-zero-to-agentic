@@ -13,6 +13,25 @@ that shows what Claude Code sends behind the scenes.
 
 The full server the students use is `challenge/mcp_server.py` (built on `agent_tools.py`).
 
+## FastMCP: what we build with
+
+`from mcp.server.fastmcp import FastMCP` is the high-level server inside the **official MCP Python SDK 1.x**
+(`pip install "mcp[cli]<2"`). It started as the open-source FastMCP 1.0 project and was merged into the SDK.
+It turns a decorated Python function into an MCP tool: the name, the docstring (description) and the type
+hints (JSON schema), and it speaks JSON-RPC for you over stdio or HTTP.
+
+| You write | FastMCP publishes |
+|---|---|
+| `@mcp.tool()` | `tools/list` + `tools/call` |
+| `@mcp.resource("jobs://backend-engineer")` | `resources/list` + `resources/read` |
+| `@mcp.prompt()` | `prompts/list` + `prompts/get` |
+| `mcp.run()` / `mcp.run(transport="streamable-http")` | a local stdio server / an HTTP server many people can share |
+
+Two names to know: the standalone **`fastmcp`** package (v4) continues the same API with extras
+(composition, proxies, middleware, auth) and moving to it is one import line: `from fastmcp import FastMCP`.
+And **MCP SDK 2.x** renamed its built-in server to `MCPServer`, so `mcp.server.fastmcp` no longer exists
+there. That is why the repo pins `mcp<2`.
+
 ## The local vector DB
 
 The chatbot's Level 2 stores every chunk in **Chroma, on your disk**: `challenge/chroma_db/`
@@ -29,7 +48,7 @@ python challenge/mcp_live/check.py          # shows the chunk count and a test s
 
 ```bash
 cd rag-zero-to-agentic && git pull && source .venv/bin/activate
-pip install "mcp[cli]" chromadb                         # if check.py says they are missing
+pip install "mcp[cli]<2" chromadb                       # if check.py says they are missing (NOT mcp 2.x: see below)
 cp ~/rag-run/cvs/* challenge/cvs/                       # the real CVs (never commit them)
 cp ~/rag-run/instructor/reference_pipeline_all_steps.py challenge/pipeline.py   # a finished pipeline for the demo
 python challenge/mcp_live/check.py --build              # builds the DB, starts all 4 servers
@@ -97,6 +116,38 @@ subagent. `claude` in the repo → approve `cv-agent` → `/agents` → hiring-a
 
 Clean up afterwards: `claude mcp remove cv-search` and `claude mcp remove cv-live`.
 
+### 5 · Skills (after the break, 10 min)
+The repo has two skills: `.claude/skills/shortlist-candidates/` and `.claude/skills/screen-cv/`
+(the same files in `.kiro/skills/`). Open one, read the description line aloud: that is the trigger.
+
+```bash
+claude                                    # in the repo, cv-agent approved
+> Shortlist candidates for the backend-engineer job.
+```
+
+On our run Claude Code called the skill by itself, then `list_jobs`, `find_candidates` once per must-have,
+`get_cv` for the 5 CVs with all four (it fixed a wrong argument name from the error message), and
+answered with the table, who to interview first, and red flags. 16 tool calls, 38 seconds.
+
+### 6 · The agentic chatbot (Level 5, 10 min)
+For the demo, use the finished graph on top of the naive pipeline (what students will have):
+
+```bash
+cp challenge/checkpoints/level3.py challenge/pipeline.py          # or keep the reference
+cp challenge/checkpoints/agentic_done.py challenge/agentic.py
+python challenge/app.py                                           # Chat tab
+```
+
+Ask "Which candidates know Kafka?" twice: without and with **Agentic RAG** ticked. Naive: "I don't
+know" (0 of 5). Agentic: route → LIST → find_all → all 5 CVs with the line that proves each one.
+Then "…worked on the construction of a huge chip factory?" (grade WEAK → rewrite → found) and
+"Which candidate has Salesforce experience?" (0 of 24 → refuse). Put the starter back afterwards:
+`git checkout challenge/agentic.py challenge/pipeline.py`.
+
+Measured with Verify (retrieval only, 24 real CVs): naive 6/10 practice and 5/15 hidden → agentic
+9/10 and 8/15. On the full Level 4 pipeline: 9/10 and 11/15 → 10/10 and 13/15. The cost is time:
+1–10 s per question instead of well under one second.
+
 ## The same server in other clients
 
 **Kiro** (`.kiro/settings/mcp.json` in the workspace, or `~/.kiro/settings/mcp.json`):
@@ -123,3 +174,5 @@ Clean up afterwards: `claude mcp remove cv-search` and `claude mcp remove cv-liv
 | Search results look random | the embedder fell back to TF-IDF (no model) | `check.py` step 3 must say `SentenceTransformerEmbedder, 384` |
 | One CV never appears | a parsing trap (a DOCX with text in a table) | `check.py` names it; fix `load_cvs` |
 | Old results after rebuilding the index | the collection handle was cached | the servers fetch the collection on every call |
+| `ModuleNotFoundError: mcp.server.fastmcp` | MCP SDK 2.x is installed (it renamed the server to `MCPServer`) | `pip install "mcp[cli]<2"`, or switch to standalone FastMCP: `pip install fastmcp` and `from fastmcp import FastMCP` |
+| `CONNECT_TIMEOUT` in Claude Code | the server took more than 30 s to start | build in the background (see `mcp_server.py`), or start Claude with `MCP_TIMEOUT=60000 claude` |

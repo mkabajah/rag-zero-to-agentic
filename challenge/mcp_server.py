@@ -14,6 +14,7 @@ import contextlib
 import functools
 import pathlib
 import sys
+import threading
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
@@ -21,15 +22,33 @@ from mcp.server.fastmcp import FastMCP
 
 with contextlib.redirect_stdout(sys.stderr):        # stdout is reserved for the MCP protocol
     import agent_tools as T
-    T._ready()
 
-mcp = FastMCP("cv-agent", instructions=T.SYSTEM_PROMPT)
+_build = threading.Lock()
+
+
+def ready():
+    """Build your pipeline once (index, graph). The first caller builds; the others wait."""
+    with _build, contextlib.redirect_stdout(sys.stderr):
+        T._ready()
+
+
+@contextlib.asynccontextmanager
+async def warm_up(server):
+    # Build in the background so the server answers the client's handshake at once:
+    # Claude Code gives a server 30 s to start, and a big pipeline can take longer.
+    threading.Thread(target=ready, daemon=True).start()
+    yield
+
+
+mcp = FastMCP("cv-agent", instructions=T.SYSTEM_PROMPT, lifespan=warm_up)
 
 
 def quiet(fn):
-    """Run a tool with print() going to stderr, so a print in pipeline.py cannot break MCP."""
+    """Wait for the build, then run the tool with print() going to stderr (a print in
+    pipeline.py must not reach stdout, or it breaks the MCP messages)."""
     @functools.wraps(fn)
     def run(*args, **kwargs):
+        ready()
         with contextlib.redirect_stdout(sys.stderr):
             return fn(*args, **kwargs)
     return run

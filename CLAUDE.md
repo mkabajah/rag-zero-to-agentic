@@ -14,7 +14,8 @@ whether a change is better. Kiro reads the same rules from `.kiro/steering/rag-l
   answer in simple Arabic and keep technical terms in English (embedding, chunk, reranker…).
 
 ## Where code goes
-- **The challenge (CV chatbot): edit only `challenge/pipeline.py`.** Never edit `challenge/app.py`
+- **The challenge (CV chatbot): edit only `challenge/pipeline.py` (levels 1–4) and `challenge/agentic.py`
+  (level 5, the agentic graph: change one node at a time, keep the edges).** Never edit `challenge/app.py`
   or `challenge/helpers.py`: the app calls the student's functions and the Verify tab scores them.
   After a change, tell the student to press "Reload pipeline" in the app and run Verify.
 - The older lab: `lab/rag_lab.py`. MCP tools: `lab/mcp_server.py`.
@@ -37,4 +38,6 @@ python challenge/app.py                              # the CV chatbot (port 7862
 git diff challenge/pipeline.py                       # what changed
 cp challenge/checkpoints/level3.py challenge/pipeline.py   # catch up to naive RAG (ask first!)
 git checkout challenge/pipeline.py                   # back to the empty starter (ask first!)
+cp challenge/checkpoints/agentic_done.py challenge/agentic.py   # catch up on level 5 (ask first!)
+python challenge/mcp_live/check.py                   # pre-flight: packages, vector DB, MCP servers
 ```
