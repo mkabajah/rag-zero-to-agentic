@@ -21,6 +21,14 @@
         "RAG_ROLE": "employee",
         "RAG_CORPUS": "cvs"
       }
+    },
+    "cv-agent": {
+      "type": "stdio",
+      "command": ".venv/bin/python",
+      "args": [
+        "challenge/mcp_server.py"
+      ],
+      "env": {}
     }
   }
 }

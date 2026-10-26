@@ -33,6 +33,20 @@
         "list_jobs",
         "find_candidates"
       ]
+    },
+    "cv-agent": {
+      "command": ".venv/bin/python",
+      "args": [
+        "challenge/mcp_server.py"
+      ],
+      "env": {},
+      "disabled": false,
+      "autoApprove": [
+        "search_cvs",
+        "get_cv",
+        "find_candidates",
+        "list_jobs"
+      ]
     }
   }
 }
