@@ -113,7 +113,7 @@ async def probe(server, tool, args):
             await s.initialize()
             names = [t.name for t in (await s.list_tools()).tools]
             out = await s.call_tool(tool, args)
-            return names, out.content[0].text if out.content else ""
+            return names, out.content[0].text if out.content else "", bool(out.isError)
 
 for server, tool, args in [("mcp_live/step1_hello.py", "list_cvs", {}),
                            ("mcp_live/step2_search.py", "search_cvs", {"question": "Kafka", "k": 2}),
@@ -121,7 +121,9 @@ for server, tool, args in [("mcp_live/step1_hello.py", "list_cvs", {}),
                            ("mcp_server.py", "list_jobs", {})]:
     t = time.time()
     try:
-        names, text = asyncio.run(asyncio.wait_for(probe(HERE / server, tool, args), 240))
+        names, text, err = asyncio.run(asyncio.wait_for(probe(HERE / server, tool, args), 240))
+        if err:
+            raise RuntimeError(text[:200])
         say(bool(text), f"{server:26s} tools: {', '.join(names)}  ({time.time() - t:.0f}s)")
     except Exception:  # noqa: BLE001
         fix = f"run it alone to see the error: python challenge/{server}"
@@ -134,6 +136,38 @@ for server, tool, args in [("mcp_live/step1_hello.py", "list_cvs", {}),
                 fix = ("it runs on YOUR challenge/pipeline.py, which is still the starter. For the demo use a finished one:\n"
                        "           cp challenge/checkpoints/level3.py challenge/pipeline.py   (or the instructor reference)")
         say(False, f"{server} did not answer", fix)
+
+print("\n5b · The remote server (step 4: Streamable HTTP + a bearer token)")
+import secrets, subprocess, urllib.request, urllib.error  # noqa: E401,E402
+_tok, _port = secrets.token_urlsafe(16), 8765
+_env = dict(os.environ, MCP_TOKEN=_tok, PORT=str(_port))
+_srv = subprocess.Popen([sys.executable, str(HERE / "mcp_live/step4_remote.py")], env=_env,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+_open = urllib.request.build_opener(urllib.request.ProxyHandler({})).open        # localhost: no proxy
+
+
+def _post(token):
+    body = b'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"check","version":"1"}}}'
+    req = urllib.request.Request(f"http://127.0.0.1:{_port}/mcp", data=body, method="POST",
+                                 headers={"Content-Type": "application/json", "Accept": "application/json, text/event-stream",
+                                          **({"Authorization": f"Bearer {token}"} if token else {})})
+    try:
+        return _open(req, timeout=10).status
+    except urllib.error.HTTPError as e:
+        return e.code
+    except Exception:  # noqa: BLE001
+        return None
+
+
+try:
+    t = time.time()
+    while time.time() - t < 180 and _post(None) is None and _srv.poll() is None:
+        time.sleep(1)
+    no, bad, good = _post(None), _post("wrong"), _post(_tok)
+    say((no, bad, good) == (401, 401, 200), f"no token → {no} · wrong token → {bad} · right token → {good}  ({time.time() - t:.0f}s)",
+        "run it alone to see the error: MCP_TOKEN=x python challenge/mcp_live/step4_remote.py")
+finally:
+    _srv.terminate()
 
 print("\n6 · Level 5: the agentic RAG graph (LangGraph)")
 try:
