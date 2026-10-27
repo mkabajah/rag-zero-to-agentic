@@ -71,6 +71,41 @@ Our run on the 24 CVs, same naive pipeline underneath: see the session slides.
 Then make it a tool for other agents: `challenge/mcp_live/README.md` (build an MCP server step by step)
 and the skills in `.claude/skills/` and `.kiro/skills/` (`shortlist-candidates`, `screen-cv`).
 
+## Free models: a bigger LLM without a GPU or a bill
+
+By default the chatbot uses Qwen 1.5B on your laptop: free, private, slow, small. You can switch the
+LLM with three environment variables, no code change (`ragkit/llm.py` speaks the OpenAI chat API):
+
+```bash
+export RAG_LLM=openai
+export OPENAI_BASE_URL=https://api.groq.com/openai/v1      # the provider's OpenAI-compatible URL
+export OPENAI_API_KEY=<your key>
+export OPENAI_MODEL=openai/gpt-oss-20b
+python challenge/mcp_live/check.py --llm                   # prints which LLM answered, and how fast
+python challenge/app.py
+```
+
+| Provider | Free (checked Oct 2026: limits change, check their page) | `OPENAI_BASE_URL` |
+|---|---|---|
+| **Groq** | ~30 requests/min, ~1,000/day per model; fast; no card | `https://api.groq.com/openai/v1` |
+| **OpenRouter** | models ending in `:free`: 20/min, **50/day** (1,000/day once you have bought $10 of credits) | `https://openrouter.ai/api/v1` |
+| **Google AI Studio** (Gemini) | free tier, limits per model shown in AI Studio | `https://generativelanguage.googleapis.com/v1beta/openai/` |
+| **Cerebras** · **Mistral** | free tiers with daily / monthly token limits | `https://api.cerebras.ai/v1` · `https://api.mistral.ai/v1` |
+| **Ollama** (local) | free forever, on your laptop: `ollama pull qwen2.5:7b` | `RAG_LLM=ollama OLLAMA_MODEL=qwen2.5:7b` |
+
+Tips:
+- **Count your calls.** Naive RAG = 1 LLM call per question. The Level 5 graph = 2–5 (route, term, rewrite,
+  answer). One agentic Verify run of 15 questions can use ~60 calls: that is more than OpenRouter's 50/day.
+  Run Verify with answers off while you build, and pick Groq or Ollama for long sessions.
+- **Agents need tool calling** (Strands, LangChain, CrewAI in `frameworks/`): choose a model that supports it
+  (gpt-oss, Qwen 2.5/3, Llama 3.1+). CrewAI uses LiteLLM names: `CREW_LLM=groq/openai/gpt-oss-20b`,
+  `CREW_LLM=openrouter/<model>`.
+- **Students:** Kiro has a students offer (1,000 credits a month for a year with a university email:
+  kiro.dev/students).
+- **Privacy: the CVs in `challenge/cvs/` are real people's CVs.** Free cloud tiers may keep or train on what
+  you send (read each provider's terms). Use a cloud API only with the invented practice CVs in `data/cvs/`;
+  for the real CVs, stay local (the default Qwen, or Ollama).
+
 ## Step 7 in detail · Graph RAG
 
 Vector search finds *similar text*. A graph stores *facts as connections*, so "which candidates know
